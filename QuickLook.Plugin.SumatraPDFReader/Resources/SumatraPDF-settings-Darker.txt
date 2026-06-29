@@ -4,3 +4,13 @@
 # So, setting bellow signal to don't check for updates because we do not want SumatraPDF.exe updated with official version from https://www.sumatrapdfreader.org/
 CheckForUpdates = false
 Theme = Darker
+
+FixedPageUI [
+	TextColor = #f9fafb
+	BackgroundColor = #191a1b
+	WindowBgCol = #191a1b
+	SelectionColor = #0078d4
+	WindowMargin = 2 4 2 4
+	PageSpacing = 4 4
+	HideScrollbars = true
+]

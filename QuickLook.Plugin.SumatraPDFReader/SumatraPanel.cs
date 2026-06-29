@@ -78,22 +78,123 @@ public partial class SumatraPanel : UserControl
         }
         else
         {
-            // Update only Theme line, preserve all other user settings
-            string[] lines = File.ReadAllLines(settingsPath);
-            var newLines = new List<string>();
-            foreach (string line in lines)
-            {
-                if (!line.Trim().StartsWith("Theme", StringComparison.OrdinalIgnoreCase))
-                    newLines.Add(line);
-            }
-            if (isDarkTheme)
-                newLines.Add("Theme = Darker");
-            File.WriteAllLines(settingsPath, newLines.ToArray());
+            // Update Theme + FixedPageUI colors, preserve everything else
+            UpdateSettingsFile(settingsPath, isDarkTheme);
         }
 
         // Load file from SumatraPDF.exe
         _sumatraPDFControl.LoadFile(path);
         presenter.Child = _sumatraPDFControl;
+    }
+
+    private static void UpdateSettingsFile(string settingsPath, bool isDarkTheme)
+    {
+        string[] lines = File.ReadAllLines(settingsPath);
+        var result = new List<string>();
+        var fixedPageUILines = new List<string>();
+        bool insideFixedPageUI = false;
+        bool hasFixedPageUI = false;
+
+        foreach (string line in lines)
+        {
+            string trimmed = line.Trim();
+
+            if (trimmed.StartsWith("FixedPageUI", StringComparison.OrdinalIgnoreCase)
+                && trimmed.Contains('['))
+            {
+                insideFixedPageUI = true;
+                hasFixedPageUI = true;
+                fixedPageUILines.Clear();
+                continue;
+            }
+
+            if (insideFixedPageUI && trimmed == "]")
+            {
+                insideFixedPageUI = false;
+                // Filter out color lines
+                var filtered = new List<string>();
+                foreach (string fl in fixedPageUILines)
+                {
+                    if (!IsFixedPageUIColor(fl.Trim()))
+                        filtered.Add(fl);
+                }
+                // Output section only if it has content or dark colors will be added
+                if (filtered.Count > 0 || isDarkTheme)
+                {
+                    result.Add("FixedPageUI [");
+                    if (isDarkTheme)
+                        AddFixedPageUIColors(result);
+                    result.AddRange(filtered);
+                    result.Add("]");
+                }
+                continue;
+            }
+
+            if (insideFixedPageUI)
+            {
+                fixedPageUILines.Add(line);
+                continue;
+            }
+
+            // Skip Theme line (will add later if dark)
+            if (trimmed.StartsWith("Theme", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            result.Add(line);
+        }
+
+        // Handle unfinished FixedPageUI section (missing closing bracket)
+        if (insideFixedPageUI && hasFixedPageUI)
+        {
+            var filtered = new List<string>();
+            foreach (string fl in fixedPageUILines)
+            {
+                if (!IsFixedPageUIColor(fl.Trim()))
+                    filtered.Add(fl);
+            }
+            if (filtered.Count > 0 || isDarkTheme)
+            {
+                result.Add("FixedPageUI [");
+                if (isDarkTheme)
+                    AddFixedPageUIColors(result);
+                result.AddRange(filtered);
+                result.Add("]");
+            }
+        }
+
+        // Append FixedPageUI if dark theme and section doesn't exist
+        if (isDarkTheme && !hasFixedPageUI)
+        {
+            result.Add(string.Empty);
+            result.Add("FixedPageUI [");
+            AddFixedPageUIColors(result);
+            result.Add("\tWindowMargin = 2 4 2 4");
+            result.Add("\tPageSpacing = 4 4");
+            result.Add("\tHideScrollbars = true");
+            result.Add("]");
+        }
+
+        // Add Theme line for dark mode
+        if (isDarkTheme)
+            result.Add("Theme = Darker");
+
+        File.WriteAllLines(settingsPath, result.ToArray());
+    }
+
+    private static bool IsFixedPageUIColor(string trimmedLine)
+    {
+        return trimmedLine.StartsWith("TextColor", StringComparison.OrdinalIgnoreCase)
+            || trimmedLine.StartsWith("BackgroundColor", StringComparison.OrdinalIgnoreCase)
+            || trimmedLine.StartsWith("WindowBgCol", StringComparison.OrdinalIgnoreCase)
+            || trimmedLine.StartsWith("SelectionColor", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void AddFixedPageUIColors(List<string> result)
+    {
+        result.Add("\tTextColor = #f9fafb");
+        result.Add("\tBackgroundColor = #191a1b");
+        result.Add("\tWindowBgCol = #191a1b");
+        result.Add("\tSelectionColor = #0078d4");
     }
 }
 
