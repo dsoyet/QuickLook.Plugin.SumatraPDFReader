@@ -18,6 +18,7 @@
 using QuickLook.Common.Helpers;
 using QuickLook.Common.Plugin;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -63,13 +64,32 @@ public partial class SumatraPanel : UserControl
         string sumatraPDFPath = Path.GetDirectoryName(_sumatraPDFControl.ResolveSumatraPDFPath());
         string settingsPath = Path.Combine(sumatraPDFPath, "SumatraPDF-settings.txt");
 
-        string theme = OSThemeHelper.AppsUseDarkTheme() ? "Darker" : "Light";
-        StreamResourceInfo info = Application.GetResourceStream(new Uri($"pack://application:,,,/QuickLook.Plugin.SumatraPDFReader;component/Resources/SumatraPDF-settings-{theme}.txt"));
-        using Stream stream = info?.Stream;
-        using StreamReader streamReader = new(stream, Encoding.UTF8);
-        string s = streamReader.ReadToEnd();
+        bool isDarkTheme = OSThemeHelper.AppsUseDarkTheme();
 
-        File.WriteAllText(settingsPath, s);
+        if (!File.Exists(settingsPath))
+        {
+            // First run: create settings from embedded template
+            string theme = isDarkTheme ? "Darker" : "Light";
+            StreamResourceInfo info = Application.GetResourceStream(new Uri($"pack://application:,,,/QuickLook.Plugin.SumatraPDFReader;component/Resources/SumatraPDF-settings-{theme}.txt"));
+            using Stream stream = info?.Stream;
+            using StreamReader streamReader = new(stream, Encoding.UTF8);
+            string s = streamReader.ReadToEnd();
+            File.WriteAllText(settingsPath, s);
+        }
+        else
+        {
+            // Update only Theme line, preserve all other user settings
+            string[] lines = File.ReadAllLines(settingsPath);
+            var newLines = new List<string>();
+            foreach (string line in lines)
+            {
+                if (!line.Trim().StartsWith("Theme", StringComparison.OrdinalIgnoreCase))
+                    newLines.Add(line);
+            }
+            if (isDarkTheme)
+                newLines.Add("Theme = Darker");
+            File.WriteAllLines(settingsPath, newLines.ToArray());
+        }
 
         // Load file from SumatraPDF.exe
         _sumatraPDFControl.LoadFile(path);
