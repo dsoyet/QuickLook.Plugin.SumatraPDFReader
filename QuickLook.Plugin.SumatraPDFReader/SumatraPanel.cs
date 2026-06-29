@@ -100,7 +100,7 @@ public partial class SumatraPanel : UserControl
             string trimmed = line.Trim();
 
             if (trimmed.StartsWith("FixedPageUI", StringComparison.OrdinalIgnoreCase)
-                && trimmed.Contains('['))
+                && trimmed.Contains("["))
             {
                 insideFixedPageUI = true;
                 hasFixedPageUI = true;
